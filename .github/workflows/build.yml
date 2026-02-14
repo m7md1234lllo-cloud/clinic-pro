@@ -4,9 +4,14 @@ on:
   push:
     branches: [ main ]
 
+env:
+  ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk    # مكان تثبيت SDK داخل الـ runner
+  PATH: ${{ runner.temp }}/android-sdk/cmdline-tools/latest/bin:${{ runner.temp }}/android-sdk/platform-tools:${{ env.PATH }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     steps:
     - name: Checkout
@@ -17,28 +22,61 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install system dependencies
+    - name: Install system packages
       run: |
         sudo apt update
-        sudo apt install -y zip unzip openjdk-17-jdk git python3-pip
+        sudo apt install -y zip unzip wget openjdk-17-jdk git python3-pip build-essential
 
-    - name: Install Python dependencies
+    - name: Install Python deps (Cython + Buildozer)
       run: |
-        python -m pip install --upgrade pip
+        python -m pip install --upgrade pip setuptools wheel
         pip install cython
         pip install buildozer
 
-    - name: Accept Android licenses
+    - name: Download Android command line tools
       run: |
-        mkdir -p $HOME/.android
-        touch $HOME/.android/repositories.cfg
-        yes | sdkmanager --licenses || true
+        mkdir -p $ANDROID_SDK_ROOT
+        cd $ANDROID_SDK_ROOT
+        # نسخة commandline tools (Google). إذا فشل التحميل تغيّر الرابط لنسخة أحدث متاحة من Google.
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O /tmp/cmdline.zip
+        unzip -q /tmp/cmdline.zip -d $ANDROID_SDK_ROOT/cmdline-tools
+        mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
+        ls -la $ANDROID_SDK_ROOT/cmdline-tools
 
-    - name: Build APK
+    - name: Install Android SDK components
       run: |
-        buildozer android debug
+        export ANDROID_HOME=$ANDROID_SDK_ROOT
+        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
+        # تحديث sdkmanager وإعداد متغيرات
+        yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses || true
+        sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-31" "build-tools;31.0.0" "build-tools;30.0.3" "build-tools;37.0.0-rc1" || true
+        # أعد قبول الرخص في حال ظهر سؤال
+        yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses || true
+
+    - name: Verify Android tools
+      run: |
+        echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+        ls -la $ANDROID_SDK_ROOT
+        which sdkmanager || true
+        sdkmanager --version || true
+        adb --version || true
+
+    - name: Build APK (Buildozer)
+      env:
+        ANDROIDSDK: ${{ env.ANDROID_SDK_ROOT }}
+        ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
+        ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
+      run: |
+        # تأكد أن buildozer.spec موجود
+        if [ ! -f buildozer.spec ]; then
+          echo "ERROR: buildozer.spec not found! Aborting."
+          exit 1
+        fi
+        # شغّل البناء (سيحمّل أي مكوّنات إضافية لو احتاج)
+        buildozer -v android debug
 
     - name: Upload APK
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: clinic-pro-apk
