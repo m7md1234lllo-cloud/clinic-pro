@@ -11,69 +11,51 @@ jobs:
     timeout-minutes: 120
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+      - name: Install system packages
+        run: |
+          sudo apt update
+          sudo apt install -y git zip unzip wget openjdk-17-jdk python3-pip build-essential
 
-    - name: Install system packages
-      run: |
-        sudo apt update
-        sudo apt install -y zip unzip wget openjdk-17-jdk git python3-pip build-essential
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-    - name: Install Python deps (Cython + Buildozer)
-      run: |
-        python -m pip install --upgrade pip setuptools wheel
-        pip install cython
-        pip install buildozer
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install cython buildozer
 
-    - name: Download Android command line tools
-      run: |
-        export ANDROID_SDK_ROOT=$RUNNER_TEMP/android-sdk
-        mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O /tmp/cmdline.zip
-        unzip -q /tmp/cmdline.zip -d $ANDROID_SDK_ROOT/cmdline-tools
-        mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
-        ls -la $ANDROID_SDK_ROOT/cmdline-tools
+      - name: Download Android SDK
+        run: |
+          export ANDROID_SDK_ROOT=$RUNNER_TEMP/android-sdk
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O /tmp/cmdline.zip
+          unzip -q /tmp/cmdline.zip -d $ANDROID_SDK_ROOT/cmdline-tools
+          mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
 
-    - name: Install Android SDK components (stable build-tools)
-      run: |
-        export ANDROID_SDK_ROOT=$RUNNER_TEMP/android-sdk
-        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
-        sdkmanager --version
-        # تثبيت platform-tools و platform api 31 و build-tools 31.0.0 (مستقرة)
-        yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-31" "build-tools;31.0.0"
-        # قبول جميع الرخص
-        yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses || true
+      - name: Install Android SDK components
+        run: |
+          export ANDROID_SDK_ROOT=$RUNNER_TEMP/android-sdk
+          export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
+          yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-31" "build-tools;31.0.0"
+          yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses || true
 
-    - name: Verify Android tools
-      run: |
-        export ANDROID_SDK_ROOT=$RUNNER_TEMP/android-sdk
-        ls -la $ANDROID_SDK_ROOT
-        which sdkmanager || true
-        sdkmanager --version || true
-        adb --version || true
+      - name: Build APK
+        env:
+          ANDROIDSDK: ${{ runner.temp }}/android-sdk
+          ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
+          ANDROID_HOME: ${{ runner.temp }}/android-sdk
+        run: |
+          sudo apt install -y git
+          git --version
+          buildozer -v android debug
 
-    - name: Build APK (Buildozer)
-      env:
-        ANDROIDSDK: ${{ runner.temp }}/android-sdk
-        ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
-        ANDROID_HOME: ${{ runner.temp }}/android-sdk
-        PATH: ${{ runner.temp }}/android-sdk/cmdline-tools/latest/bin:${{ runner.temp }}/android-sdk/platform-tools:${{ env.PATH }}
-      run: |
-        # تأكد أن buildozer.spec موجود
-        if [ ! -f buildozer.spec ]; then
-          echo "buildozer.spec not found!"
-          exit 1
-        fi
-        buildozer -v android debug
-
-    - name: Upload APK
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: clinic-pro-apk
-        path: bin/*.apk
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: clinic-pro-apk
+          path: bin/*.apk
