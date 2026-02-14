@@ -1,0 +1,79 @@
+WindowManager:
+    Dashboard:
+    AddVisit:
+    Search:
+
+<Dashboard>:
+    name: "dashboard"
+    BoxLayout:
+        orientation: "vertical"
+        spacing: 10
+        padding: 10
+
+        Label:
+            id: stats
+            text: ""
+
+        Button:
+            text: "إضافة زيارة"
+            on_press: app.root.current = "add"
+
+        Button:
+            text: "بحث"
+            on_press: app.root.current = "search"
+
+
+<AddVisit>:
+    name: "add"
+    BoxLayout:
+        orientation: "vertical"
+        spacing: 10
+        padding: 10
+
+        TextInput:
+            id: name
+            hint_text: "اسم المريض"
+
+        TextInput:
+            id: price
+            hint_text: "سعر الكشف"
+
+        TextInput:
+            id: paid
+            hint_text: "المبلغ المدفوع"
+
+        Button:
+            text: "حفظ"
+            on_press: root.save()
+
+        Label:
+            id: result
+            text: ""
+
+        Button:
+            text: "رجوع"
+            on_press: app.root.current = "dashboard"
+
+
+<Search>:
+    name: "search"
+    BoxLayout:
+        orientation: "vertical"
+        spacing: 10
+        padding: 10
+
+        TextInput:
+            id: search_name
+            hint_text: "بحث بالاسم"
+
+        Button:
+            text: "بحث"
+            on_press: root.search()
+
+        Label:
+            id: results
+            text: ""
+
+        Button:
+            text: "رجوع"
+            on_press: app.root.current = "dashboard"
