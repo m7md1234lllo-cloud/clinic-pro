@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clinic Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="font-family: Arial; padding:20px">
+
+<h2>إدارة العيادة</h2>
+
+<form method="POST">
+    <input name="name" placeholder="اسم المريض" required><br><br>
+    <input name="price" type="number" placeholder="سعر الكشف" required><br><br>
+    <input name="paid" type="number" placeholder="المبلغ المدفوع" required><br><br>
+    <button type="submit">حفظ</button>
+</form>
+
+<hr>
+
+<h3>الإحصائيات</h3>
+<p>إجمالي الأرباح: {{ total }}</p>
+<p>إجمالي الديون: {{ debts }}</p>
+
+<hr>
+
+<h3>الزيارات</h3>
+{% for v in visits %}
+<p>{{ v[1] }} | {{ v[2] }} | المتبقي: {{ v[3] - v[4] }}</p>
+{% endfor %}
+
+</body>
+</html>
