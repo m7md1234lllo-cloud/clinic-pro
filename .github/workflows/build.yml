@@ -9,12 +9,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout
+      uses: actions/checkout@v4
 
-    - name: Install system dependencies
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y zip unzip openjdk-17-jdk python3-pip git
+        sudo apt install -y zip unzip openjdk-17-jdk git
         pip install --upgrade pip
         pip install buildozer
 
@@ -22,8 +28,8 @@ jobs:
       run: |
         buildozer android debug
 
-    - name: Upload APK Artifact
-      uses: actions/upload-artifact@v3
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
       with:
         name: clinic-pro-apk
         path: bin/*.apk
