@@ -12,17 +12,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install system dependencies
+      - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y python3-pip python3-setuptools python3-wheel \
           git zip unzip openjdk-17-jdk \
           autoconf libtool pkg-config zlib1g-dev
 
-      - name: Install Python dependencies
-        run: |
           pip3 install --upgrade pip
           pip3 install cython buildozer
+
+      - name: Accept Android Licenses
+        run: |
+          yes | sdkmanager --licenses || true
 
       - name: Build APK
         run: |
