@@ -1,11 +1,10 @@
 from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager, Screen
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.button import Button
-from kivy.uix.label import Label
-from kivy.uix.textinput import TextInput
+from kivy.clock import Clock
 import sqlite3
 from datetime import datetime
+from fpdf import FPDF
+import os
 
 DB = "clinic.db"
 
@@ -50,9 +49,17 @@ class Dashboard(Screen):
         c.execute("SELECT SUM(price) FROM visits")
         total = c.fetchone()[0] or 0
 
+        c.execute("SELECT SUM(price - paid) FROM visits")
+        debts = c.fetchone()[0] or 0
+
         conn.close()
 
-        self.ids.stats.text = f"عدد المرضى: {patients}\nعدد الزيارات: {visits}\nإجمالي الأرباح: {total}"
+        self.ids.stats.text = (
+            f"عدد المرضى: {patients}\n"
+            f"عدد الزيارات: {visits}\n"
+            f"إجمالي الأرباح: {total}\n"
+            f"إجمالي الديون: {debts}"
+        )
 
 
 # ---------------- Add Visit ----------------
@@ -75,8 +82,10 @@ class AddVisit(Screen):
             c.execute("INSERT INTO patients (name) VALUES (?)", (name,))
             pid = c.lastrowid
 
-        c.execute("INSERT INTO visits (patient_id, date, price, paid) VALUES (?,?,?,?)",
-                  (pid, datetime.now().strftime("%Y-%m-%d"), price, paid))
+        c.execute("""
+        INSERT INTO visits (patient_id, date, price, paid)
+        VALUES (?, ?, ?, ?)
+        """, (pid, datetime.now().strftime("%Y-%m-%d"), price, paid))
 
         conn.commit()
         conn.close()
@@ -105,9 +114,66 @@ class Search(Screen):
 
         text = ""
         for r in results:
-            text += f"{r[0]} - {r[1]} - {r[2]} - {r[3]}\n"
+            remaining = r[2] - r[3]
+            text += f"{r[0]} | {r[1]} | المتبقي: {remaining}\n"
 
         self.ids.results.text = text or "لا يوجد نتائج"
+
+
+# ---------------- Debts ----------------
+
+class Debts(Screen):
+    def on_enter(self):
+        conn = sqlite3.connect(DB)
+        c = conn.cursor()
+
+        c.execute("""
+        SELECT patients.name, visits.date, (price - paid)
+        FROM visits
+        JOIN patients ON visits.patient_id = patients.id
+        WHERE price > paid
+        """)
+
+        results = c.fetchall()
+        conn.close()
+
+        text = ""
+        for r in results:
+            text += f"{r[0]} | {r[1]} | دين: {r[2]}\n"
+
+        self.ids.debts_label.text = text or "لا يوجد ديون"
+
+
+# ---------------- PDF ----------------
+
+class PDF(Screen):
+    def generate(self):
+        conn = sqlite3.connect(DB)
+        c = conn.cursor()
+
+        c.execute("""
+        SELECT patients.name, visits.date, visits.price, visits.paid
+        FROM visits
+        JOIN patients ON visits.patient_id = patients.id
+        """)
+
+        data = c.fetchall()
+        conn.close()
+
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=10)
+
+        pdf.cell(200, 10, txt="Clinic Report", ln=True)
+
+        for row in data:
+            remaining = row[2] - row[3]
+            pdf.cell(200, 8,
+                     txt=f"{row[0]} | {row[1]} | {remaining}",
+                     ln=True)
+
+        pdf.output("clinic_report.pdf")
+        self.ids.msg.text = "تم إنشاء PDF"
 
 
 class WindowManager(ScreenManager):
