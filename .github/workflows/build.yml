@@ -24,12 +24,10 @@ jobs:
         pip install --upgrade pip
         pip install cython
         pip install buildozer
-        buildozer android update
-        yes | buildozer android accept_sdk_license
 
     - name: Build APK
       run: |
-        buildozer android debug
+        buildozer android debug--accept-sdk-license
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
