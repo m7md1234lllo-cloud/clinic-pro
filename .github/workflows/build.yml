@@ -11,16 +11,14 @@ jobs:
     timeout-minutes: 120
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install system packages
         run: |
           sudo apt update
           sudo apt install -y git zip unzip wget openjdk-17-jdk python3-pip build-essential
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
@@ -29,29 +27,19 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install cython buildozer
 
-      - name: Download Android SDK
+      - name: Prepare Android SDK for Buildozer
         run: |
-          export ANDROID_SDK_ROOT=$RUNNER_TEMP/android-sdk
+          export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
           mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O /tmp/cmdline.zip
           unzip -q /tmp/cmdline.zip -d $ANDROID_SDK_ROOT/cmdline-tools
           mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
-
-      - name: Install Android SDK components
-        run: |
-          export ANDROID_SDK_ROOT=$RUNNER_TEMP/android-sdk
           export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
           yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-31" "build-tools;31.0.0"
           yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses || true
 
       - name: Build APK
-        env:
-          ANDROIDSDK: ${{ runner.temp }}/android-sdk
-          ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
-          ANDROID_HOME: ${{ runner.temp }}/android-sdk
         run: |
-          sudo apt install -y git
-          git --version
           buildozer -v android debug
 
       - name: Upload APK
